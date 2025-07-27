@@ -1,6 +1,9 @@
-#include <nd/nd.h>
-#include <stdio.h>
 #include "./include/uapi/mortal.h"
+
+#include <stdio.h>
+
+#include <nd/nd.h>
+#include <nd/attr.h>
 
 unsigned mortal_hd, bcp_hp;
 
@@ -27,7 +30,7 @@ SIC_DEF(int, mcp_hp, unsigned, player_ref)
 int mcp_hp(unsigned ref) {
 	mortal_t mortal;
 	nd_get(mortal_hd, &mortal, &ref);
-	mcp_bar(bcp_hp, ref, mortal.hp, HP_MAX(&mortal));
+	mcp_bar(bcp_hp, ref, mortal.hp, call_hp_max(ref, 0));
 	return 0;
 }
 
@@ -66,7 +69,7 @@ huth_notify(unsigned player_ref, mortal_t *mortal, enum huth type)
 	char const **m = msg + 4 * type;
 
 	if (rn >= 4) {
-		return HP_MAX(mortal) >> 3;
+		return call_hp_max(player_ref, 0) >> 3;
 	} else if (rn >= 3) {
 		if (v >= 2 * n[1] + n[2]) {
 			nd_writef(player_ref, m[3]);
@@ -132,7 +135,7 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 
 	mortal_body(ref);
 
-	SIC_CALL(NULL, on_murder, killer_ref, ref);
+	call_on_murder(killer_ref, ref);
 
 	nd_get(HD_OBJ, &victim, &ref);
 	loc_ref = victim.location;
@@ -142,7 +145,7 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 	ent = ent_get(ref);
 	mortal.hp = 1;
 	nd_put(mortal_hd, &ref, &mortal);
-	SIC_CALL(NULL, on_death, ref);
+	call_on_death(ref);
 	look_around(ref);
 	mcp_hp(ref);
 	/* nd_flush(ref); */
@@ -157,20 +160,24 @@ mortal_damage(unsigned attacker_ref, unsigned ref, short amt)
 	long hp;
 
 	nd_get(mortal_hd, &mortal, &ref);
-	hp = mortal.hp;
-	hp += amt;
 
 	if (!amt)
 		return 0;
+
+	hp = mortal.hp;
+	hp += amt;
 
 	if (hp <= 0) {
 		mortal_murder(attacker_ref, ref);
 		return 1;
 	}
 
-	register unsigned short max = HP_MAX(&mortal);
+	register unsigned short max = call_hp_max(ref, 0);
 	if (hp > max)
 		hp = max;
+
+	if (mortal.hp == hp)
+		return 0;
 
 	mortal.hp = hp;
 	nd_put(mortal_hd, &ref, &mortal);
@@ -197,13 +204,13 @@ mortal_update(unsigned ref, double dt)
 
 	mortal.damage = damage;
 	nd_put(mortal_hd, &ref, &mortal);
-	SIC_CALL(NULL, on_mortal_life, ref, dt);
+	call_on_mortal_life(ref, dt);
 	nd_get(mortal_hd, &mortal, &ref);
 
-	if (mortal_damage(NOTHING, ref, mortal.damage))
+	if (mortal.damage && mortal_damage(NOTHING, ref, mortal.damage))
 		return;
 
-	SIC_CALL(NULL, on_mortal_survival, ref, dt);
+	call_on_mortal_survival(ref, dt);
 
 	nd_get(mortal_hd, &mortal, &ref);
 
@@ -228,8 +235,9 @@ int on_add(unsigned ref, unsigned type, uint64_t v) {
 		return 0;
 
 	memset(&mortal, 0, sizeof(mortal));
+	mortal.hp = call_hp_max(ref, 0);
 	nd_put(mortal_hd, &ref, &mortal);
-	SIC_CALL(NULL, on_birth, ref, v);
+	call_on_birth(ref, v);
 	return 0;
 }
 
@@ -241,7 +249,7 @@ on_status(unsigned player_ref)
 	nd_writef(player_ref, "Mortal:\t"
 			"hp %u/%u\tstuck 0x%x\t"
 			"hunger %u\tthirst %u\n",
-			mortal.hp, HP_MAX(&mortal),
+			mortal.hp, call_hp_max(player_ref, 0),
 			mortal.huth[HUTH_HUNGER],
 			mortal.huth[HUTH_THIRST]);
 	return 0;
@@ -254,7 +262,7 @@ int on_examine(unsigned player_ref, unsigned ref, unsigned type) {
 		return 1;
 
 	nd_get(mortal_hd, &target, &ref);
-	nd_writef(player_ref, "Hp: %d/%d\n", target.hp, HP_MAX(&target));
+	nd_writef(player_ref, "Hp: %d/%d\n", target.hp, call_hp_max(player_ref, 0));
 	return 0;
 }
 
