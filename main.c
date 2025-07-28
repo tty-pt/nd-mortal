@@ -5,6 +5,18 @@
 #include <nd/nd.h>
 #include <nd/attr.h>
 
+enum huth {
+	HUTH_THIRST = 0,
+	HUTH_HUNGER = 1,
+};
+
+typedef struct {
+	long hp;
+	unsigned short huth[2];
+        unsigned char huth_n[2];
+	long damage;
+} mortal_t;
+
 unsigned mortal_hd, bcp_hp;
 
 unsigned huth_y[2] = {
@@ -13,19 +25,19 @@ unsigned huth_y[2] = {
 };
 
 /* API */
-
-SIC_DEF(int, mortal_damage, unsigned, killer_ref, unsigned, victim_ref, short, amt)
-SIC_DEF(int, mcp_hp, unsigned, player_ref)
+SIC_DEF(int, mortal_damage, unsigned, killer_ref, unsigned, victim_ref, long, amt);
+SIC_DEF(int, mcp_hp, unsigned, player_ref);
+SIC_DEF(int, heal, unsigned, ref);
+SIC_DEF(int, feed, unsigned, ref, unsigned, food, unsigned, drink);
 
 /* SIC */
+SIC_DEF(int, on_mortal_life, unsigned, player_ref, double, dt);
+SIC_DEF(int, on_mortal_survival, unsigned, player_ref, double, dt);
 
-SIC_DEF(int, on_mortal_life, unsigned, player_ref, double, dt)
-SIC_DEF(int, on_mortal_survival, unsigned, player_ref, double, dt)
+SIC_DEF(int, on_birth, unsigned, ref, uint64_t, v);
+SIC_DEF(int, on_death, unsigned, ref);
 
-SIC_DEF(int, on_birth, unsigned, ref, uint64_t, v)
-SIC_DEF(int, on_death, unsigned, ref)
-
-SIC_DEF(int, on_murder, unsigned, killer_ref, unsigned, ref)
+SIC_DEF(int, on_murder, unsigned, killer_ref, unsigned, ref);
 
 int mcp_hp(unsigned ref) {
 	mortal_t mortal;
@@ -34,7 +46,7 @@ int mcp_hp(unsigned ref) {
 	return 0;
 }
 
-static inline int
+static inline long
 huth_notify(unsigned player_ref, mortal_t *mortal, enum huth type)
 {
 	static char const *msg[] = {
@@ -122,13 +134,20 @@ mortal_body(unsigned ref)
 	}
 }
 
+int on_death(unsigned ref) {
+	mortal_t mortal;
+	nd_get(mortal_hd, &mortal, &ref);
+	memset(&mortal, 0, sizeof(mortal));
+	mortal.hp = 1;
+	nd_put(mortal_hd, &ref, &mortal);
+	return 0;
+}
+
 static inline unsigned
 mortal_murder(unsigned killer_ref, unsigned ref)
 {
 	OBJ victim;
-	ENT ent;
 	OBJ loc;
-	mortal_t mortal;
 	unsigned loc_ref;
 
 	notify_wts(ref, "die", "dies", "");
@@ -136,16 +155,13 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 	mortal_body(ref);
 
 	call_on_murder(killer_ref, ref);
-
-	nd_get(HD_OBJ, &victim, &ref);
-	loc_ref = victim.location;
-
-	nd_get(HD_OBJ, &loc, &loc_ref);
-
-	ent = ent_get(ref);
-	mortal.hp = 1;
-	nd_put(mortal_hd, &ref, &mortal);
 	call_on_death(ref);
+
+	if (nd_get(HD_OBJ, &victim, &ref))
+		return NOTHING;
+
+	loc_ref = victim.location;
+	nd_get(HD_OBJ, &loc, &loc_ref);
 	look_around(ref);
 	mcp_hp(ref);
 	/* nd_flush(ref); */
@@ -154,16 +170,15 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 }
 
 int
-mortal_damage(unsigned attacker_ref, unsigned ref, short amt)
+mortal_damage(unsigned attacker_ref, unsigned ref, long amt)
 {
 	mortal_t mortal;
 	long hp;
 
-	nd_get(mortal_hd, &mortal, &ref);
-
 	if (!amt)
 		return 0;
 
+	nd_get(mortal_hd, &mortal, &ref);
 	hp = mortal.hp;
 	hp += amt;
 
@@ -172,7 +187,7 @@ mortal_damage(unsigned attacker_ref, unsigned ref, short amt)
 		return 1;
 	}
 
-	register unsigned short max = call_hp_max(ref);
+	register long max = call_hp_max(ref);
 	if (hp > max)
 		hp = max;
 
@@ -191,13 +206,12 @@ mortal_update(unsigned ref, double dt)
 {
 	OBJ player;
 	nd_get(HD_OBJ, &player, &ref);
-	ENT ent = ent_get(ref);
 	mortal_t mortal;
-	unsigned short ohp = mortal.hp;
+	unsigned ohp = mortal.hp;
 
 	nd_get(mortal_hd, &mortal, &ref);
 
-	int damage = 0;
+	long damage = 0;
 
 	damage -= huth_notify(ref, &mortal, HUTH_THIRST);
 	damage -= huth_notify(ref, &mortal, HUTH_HUNGER);
@@ -248,7 +262,7 @@ on_status(unsigned player_ref)
 {
 	mortal_t mortal;
 	nd_get(mortal_hd, &mortal, &player_ref);
-	nd_writef(player_ref, "Mortal:\t\thp %u/%u\thun %u\tthi %u\n",
+	nd_writef(player_ref, "Mortal\thp %5u, mhp %4u, hun %4u, thi %4u\n",
 			mortal.hp, call_hp_max(player_ref),
 			mortal.huth[HUTH_HUNGER],
 			mortal.huth[HUTH_THIRST]);
@@ -262,33 +276,47 @@ int on_examine(unsigned player_ref, unsigned ref, unsigned type) {
 		return 1;
 
 	nd_get(mortal_hd, &target, &ref);
-	nd_writef(player_ref, "Hp: %d/%d\n", target.hp, call_hp_max(player_ref));
+	nd_writef(player_ref, "Hp: %ld/%ld\n", target.hp, call_hp_max(player_ref));
+	return 0;
+}
+
+int heal(unsigned ref) {
+	mortal_t mortal;
+	mortal.hp = call_hp_max(ref);
+	mortal.huth[HUTH_THIRST] = mortal.huth[HUTH_HUNGER] = 0;
+	nd_put(mortal_hd, &ref, &mortal);
+	mcp_hp(ref);
+	return 0;
+}
+
+int feed(unsigned ref, unsigned food, unsigned drink) {
+	mortal_t mortal;
+	int aux;
+
+	nd_get(mortal_hd, &mortal, &ref);
+
+	if (drink) {
+		aux = mortal.huth[HUTH_THIRST] - drink;
+		mortal.huth[HUTH_THIRST] = aux < 0 ? 0 : aux;
+	}
+
+	if (food) {
+		aux = mortal.huth[HUTH_HUNGER] - food;
+		mortal.huth[HUTH_HUNGER] = aux < 0 ? 0 : aux;
+	}
+
+	nd_put(mortal_hd, &ref, &mortal);
 	return 0;
 }
 
 void
-mod_open(void *arg __attribute__((unused))) {
+mod_open(void) {
 	nd_len_reg("mortal", sizeof(mortal_t));
 	mortal_hd = nd_open("mortal", "u", "mortal", 0);
 	bcp_hp = nd_put(HD_BCP, NULL, "hp");
-
-	/* API */
-	
-	SIC_AREG(mortal_damage);
-	SIC_AREG(mcp_hp);
-
-	/* SIC */
-
-	SIC_AREG(on_mortal_life);
-	SIC_AREG(on_mortal_survival);
-
-	SIC_AREG(on_birth);
-	SIC_AREG(on_death);
-
-	SIC_AREG(on_murder);
 }
 
 void
-mod_install(void *arg) {
-	mod_open(arg);
+mod_install(void) {
+	mod_open();
 }
