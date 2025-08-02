@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include <nd/nd.h>
+#include <nd/verb.h>
 #include <nd/attr.h>
 
 enum huth {
@@ -18,6 +19,7 @@ typedef struct {
 } mortal_t;
 
 unsigned mortal_hd, bcp_hp;
+unsigned wt_die;
 
 unsigned huth_y[2] = {
 	DAYTICK_Y + 2,
@@ -114,7 +116,7 @@ mortal_body(unsigned ref)
 	OBJ mob, dead_mob;
 	nd_get(HD_OBJ, &mob, &ref);
 	snprintf(buf, sizeof(buf), "%s's body.", mob.name);
-	unsigned body_ref = object_add(&dead_mob, mob.skid, mob.location, 0);
+	unsigned body_ref = object_add(&dead_mob, mob.skid, mob.location, 0, 0);
 	unsigned n = 0;
 
 	nd_cur_t c = nd_iter(HD_CONTENTS, &ref);
@@ -150,7 +152,7 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 	OBJ loc;
 	unsigned loc_ref;
 
-	notify_wts(ref, "die", "dies", "");
+	call_verb(ref, wt_die, "");
 
 	mortal_body(ref);
 
@@ -162,7 +164,7 @@ mortal_murder(unsigned killer_ref, unsigned ref)
 
 	loc_ref = victim.location;
 	nd_get(HD_OBJ, &loc, &loc_ref);
-	look_around(ref);
+	look_at(ref, NOTHING);
 	mcp_hp(ref);
 	/* nd_flush(ref); */
 
@@ -314,9 +316,11 @@ mod_open(void) {
 	nd_len_reg("mortal", sizeof(mortal_t));
 	mortal_hd = nd_open("mortal", "u", "mortal", 0);
 	bcp_hp = nd_put(HD_BCP, NULL, "hp");
+	nd_get(HD_RWTS, &wt_die, "die");
 }
 
 void
 mod_install(void) {
+	nd_get(HD_WTS, NULL, "die");
 	mod_open();
 }
