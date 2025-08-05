@@ -182,7 +182,7 @@ mortal_damage(unsigned attacker_ref, unsigned ref, long amt)
 
 	nd_get(mortal_hd, &mortal, &ref);
 	hp = mortal.hp;
-	hp += amt;
+	hp -= amt;
 
 	if (hp <= 0) {
 		mortal_murder(attacker_ref, ref);
@@ -321,6 +321,6 @@ mod_open(void) {
 
 void
 mod_install(void) {
-	nd_get(HD_WTS, NULL, "die");
+	nd_put(HD_WTS, NULL, "die");
 	mod_open();
 }
