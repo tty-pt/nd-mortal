@@ -119,8 +119,8 @@ mortal_body(unsigned ref)
 	unsigned body_ref = object_add(&dead_mob, mob.skid, mob.location, 0, 0);
 	unsigned n = 0;
 
-	nd_cur_t c = nd_iter(HD_CONTENTS, &ref);
-	while (nd_next(&ref, &tmp_ref, &c)) {
+	unsigned c = nd_iter(HD_CONTENTS, &ref);
+	while (nd_next(&ref, &tmp_ref, c)) {
 		object_move(tmp_ref, body_ref);
 		n++;
 	}
