@@ -1,0 +1,1 @@
+CFLAGS-libnd-mortal-o := -fPIC
