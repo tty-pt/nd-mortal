@@ -33,8 +33,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MORTAL_IMPL
-#include <nd/mortal.h>
 
 #include <nd/attr.h>
 
