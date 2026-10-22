@@ -35,6 +35,7 @@
 
 
 #include <nd/attr.h>
+#include <nd/mortal-types.h>
 
 /* Lifecycle hooks this TU calls but does not implement. The MORTAL_IMPL guard
  * above suppresses the header's XY_DECLs (to protect the five names this TU
@@ -44,18 +45,6 @@ XY_DECL(int, on_mortal_life, unsigned, player_ref, double, dt);
 XY_DECL(int, on_mortal_survival, unsigned, player_ref, double, dt);
 XY_DECL(int, on_birth, unsigned, ref, uint64_t, v);
 XY_DECL(int, on_murder, unsigned, killer_ref, unsigned, ref);
-
-enum huth {
-	HUTH_THIRST = 0,
-	HUTH_HUNGER = 1,
-};
-
-typedef struct {
-	long hp;
-	unsigned short huth[2];
-        unsigned char huth_n[2];
-	long damage;
-} mortal_t;
 
 static unsigned mortal_hd, bcp_hp;
 static unsigned wt_die;
