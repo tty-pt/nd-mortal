@@ -233,6 +233,11 @@ XY_IMPL(int, mortal_damage, unsigned, attacker_ref, unsigned, ref, long, amt)
 	hp -= amt;
 
 	if (hp <= 0) {
+		if (attacker_ref != NOTHING && attacker_ref != ref) {
+			struct { unsigned ref; unsigned short val, max; } __attribute__((packed)) tv = {
+				0, 0, 0 };
+			fbcp(attacker_ref, sizeof(tv), 18, &tv); /* target gone */
+		}
 		mortal_murder(attacker_ref, ref);
 		return 1;
 	}
@@ -247,6 +252,14 @@ XY_IMPL(int, mortal_damage, unsigned, attacker_ref, unsigned, ref, long, amt)
 	mortal.hp = hp;
 	nd_put(mortal_hd, &ref, &mortal);
 	mcp_hp(ref);
+
+	/* Tell the attacker how the target is doing (ND_BCP_TARGET_HP): lets any
+	 * viewport draw a target vitality bar without parsing combat text. */
+	if (attacker_ref != NOTHING && attacker_ref != ref) {
+		struct { unsigned ref; unsigned short val, max; } __attribute__((packed)) tv = {
+			ref, (unsigned short) hp, (unsigned short) max };
+		fbcp(attacker_ref, sizeof(tv), 18, &tv);
+	}
 
 	return 0;
 }
