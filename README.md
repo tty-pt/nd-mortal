@@ -56,6 +56,11 @@ same command works either way. CI names the deps explicitly
 * `on_add` initializes the row for a new entity; `on_status` and
   `on_examine` report the living state.
 
+## Wire Protocol & BCP Integration
+
+- Registers `bcp_hp` dynamically on `HD_BCP`.
+- Streams real-time Health gauge frames via `mcp_bar(bcp_hp, player, hp, max)`.
+
 ## Testing
 
 There is no `test.sh` here. Behaviour is asserted by the engine's own suite:

@@ -8,6 +8,7 @@
 #define ND_MORTAL_H
 
 #include <ttypt/xy.h>
+#include <nd/mortal-types.h>
 
 /* API */
 XY_DECL(int, mortal_damage, unsigned, killer_ref, unsigned, victim_ref, long, amt);

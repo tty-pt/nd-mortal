@@ -1,4 +1,16 @@
-## 1.0.2
+## [1.1.0]
+
+- **Target Vitality Channel & UI Component (`<nd/mortal-bcp.h>`, `ux/mortal_ui.c`)**:
+  - Added `nd_mortal_target_unpack()` for decoding BCP target entity vitality updates.
+  - Added target health bar UI helper functions.
+  - Adopted universal `BUD_DEFINE_STATE` and `BUD_SLOT_CONTRIBUTE` for mortal UI slot registration.
+- **Two-Header Architecture (`<nd/mortal-types.h>`)**:
+  - Extracted `<nd/mortal-types.h>` defining `mortal_t` and `enum huth`.
+  - Removed `MORTAL_IMPL` preprocessor guards.
+- **Documentation**:
+  - Standardized README with man-src, art, and modder guide.
+
+## [1.0.2]
 
 - **The sibling `-I` lines are gone.** `CFLAGS += -I$(shell cd .. && pwd)/…`
   pointed at the axil-nd/nd sibling checkouts and only existed for a dev

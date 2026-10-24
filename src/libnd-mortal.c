@@ -35,6 +35,7 @@
 
 
 #include <nd/attr.h>
+#include <nd/mortal-types.h>
 
 /* Lifecycle hooks this TU calls but does not implement. The MORTAL_IMPL guard
  * above suppresses the header's XY_DECLs (to protect the five names this TU
@@ -44,18 +45,6 @@ XY_DECL(int, on_mortal_life, unsigned, player_ref, double, dt);
 XY_DECL(int, on_mortal_survival, unsigned, player_ref, double, dt);
 XY_DECL(int, on_birth, unsigned, ref, uint64_t, v);
 XY_DECL(int, on_murder, unsigned, killer_ref, unsigned, ref);
-
-enum huth {
-	HUTH_THIRST = 0,
-	HUTH_HUNGER = 1,
-};
-
-typedef struct {
-	long hp;
-	unsigned short huth[2];
-        unsigned char huth_n[2];
-	long damage;
-} mortal_t;
 
 static unsigned mortal_hd, bcp_hp;
 static unsigned wt_die;
@@ -244,6 +233,11 @@ XY_IMPL(int, mortal_damage, unsigned, attacker_ref, unsigned, ref, long, amt)
 	hp -= amt;
 
 	if (hp <= 0) {
+		if (attacker_ref != NOTHING && attacker_ref != ref) {
+			struct { unsigned ref; unsigned short val, max; } __attribute__((packed)) tv = {
+				0, 0, 0 };
+			fbcp(attacker_ref, sizeof(tv), 18, &tv); /* target gone */
+		}
 		mortal_murder(attacker_ref, ref);
 		return 1;
 	}
@@ -258,6 +252,14 @@ XY_IMPL(int, mortal_damage, unsigned, attacker_ref, unsigned, ref, long, amt)
 	mortal.hp = hp;
 	nd_put(mortal_hd, &ref, &mortal);
 	mcp_hp(ref);
+
+	/* Tell the attacker how the target is doing (ND_BCP_TARGET_HP): lets any
+	 * viewport draw a target vitality bar without parsing combat text. */
+	if (attacker_ref != NOTHING && attacker_ref != ref) {
+		struct { unsigned ref; unsigned short val, max; } __attribute__((packed)) tv = {
+			ref, (unsigned short) hp, (unsigned short) max };
+		fbcp(attacker_ref, sizeof(tv), 18, &tv);
+	}
 
 	return 0;
 }
