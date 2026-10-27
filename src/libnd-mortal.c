@@ -324,8 +324,11 @@ XY_IMPL(int, on_add, unsigned, ref, unsigned, type, uint64_t, v)
 
 XY_IMPL(int, on_status, unsigned, player_ref)
 {
-	mortal_t mortal;
-	nd_get(mortal_hd, &mortal, &player_ref);
+	mortal_t mortal = { 0 };
+	if (nd_get(mortal_hd, &mortal, &player_ref) != 0) {
+		mortal.hp = hp_max(player_ref);
+		nd_put(mortal_hd, &player_ref, &mortal);
+	}
 	nd_printf(player_ref, "Mortal\thp %5u, mhp %4u, hun %4u, thi %4u\n",
 			mortal.hp, hp_max(player_ref),
 			mortal.huth[HUTH_HUNGER],
